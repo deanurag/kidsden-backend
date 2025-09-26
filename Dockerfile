@@ -26,7 +26,8 @@ COPY chatbackend/ /app/chatbackend/
 # Create a startup script to run both applications
 WORKDIR /app
 COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+# Fix line endings and make executable
+RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 # Expose ports for both applications
 # Backend typically runs on 3000, chatbackend on 8000
