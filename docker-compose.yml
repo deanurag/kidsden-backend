@@ -65,7 +65,7 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-      KAFKA_HEAP_OPTS: "-Xmx128m -Xms64m"
+      ZOOKEEPER_JVM_FLAGS: "-Xmx128m -Xms64m"
     networks:
       - app-network
     restart: unless-stopped
@@ -90,8 +90,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-      KAFKA_HEAP_OPTS: "-Xmx256m -Xms128m"
-      KAFKA_JVM_PERFORMANCE_OPTS: "-server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -Djava.awt.headless=true"
+      KAFKA_JVM_PERFORMANCE_OPTS: "-server -Xmx256m -Xms128m -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -Djava.awt.headless=true"
     volumes:
       - kafka_data:/var/lib/kafka/data
     networks:
