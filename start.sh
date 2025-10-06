@@ -1,32 +1,75 @@
 #!/bin/sh
 
-# Start script to run both Node.js applications
+# Startup script for combined backend services
+# This script handles both local development and EC2 deployment
 
-echo "Starting both backend services..."
+set -e
 
-# Start backend service in background
-echo "Starting backend service on port 3000..."
-cd /app/backend
-PORT=3000 npm start &
-BACKEND_PID=$!
+echo "===> Starting KidsDen Backend Services"
+echo "===> User: $(whoami)"
+echo "===> Current directory: $(pwd)"
 
-# Start chatbackend service in background
-echo "Starting chatbackend service on port 8000..."
-cd /app/chatbackend
-PORT=8000 npm start &
-CHATBACKEND_PID=$!
+# Function to wait for services to be ready
+wait_for_service() {
+    local host=$1
+    local port=$2
+    local service_name=$3
+    local max_attempts=30
+    local attempt=1
 
-# Function to handle shutdown gracefully
-cleanup() {
-    echo "Shutting down services..."
-    kill $BACKEND_PID $CHATBACKEND_PID 2>/dev/null
-    wait $BACKEND_PID $CHATBACKEND_PID 2>/dev/null
-    echo "Services stopped."
-    exit 0
+    echo "===> Waiting for $service_name to be available at $host:$port..."
+    
+    while [ $attempt -le $max_attempts ]; do
+        if nc -z "$host" "$port" 2>/dev/null; then
+            echo "===> $service_name is ready!"
+            return 0
+        fi
+        
+        echo "===> Attempt $attempt/$max_attempts: $service_name not ready, waiting..."
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    
+    echo "===> Warning: $service_name not available after $max_attempts attempts"
+    return 1
 }
 
-# Trap signals for graceful shutdown
-trap cleanup SIGTERM SIGINT
+# Detect environment (local vs EC2)
+if [ "${NODE_ENV}" = "production" ] || [ "${ENVIRONMENT}" = "ec2" ]; then
+    echo "===> Running in production/EC2 environment"
+    
+    # In production, wait for external services
+    wait_for_service "${MONGO_HOST:-mongodb}" "${MONGO_PORT:-27017}" "MongoDB"
+    wait_for_service "${REDIS_HOST:-redis}" "${REDIS_PORT:-6379}" "Redis" 
+    wait_for_service "${KAFKA_HOST:-kafka}" "${KAFKA_PORT:-9092}" "Kafka"
+else
+    echo "===> Running in development environment"
+    
+    # In development, services might be on localhost
+    MONGO_HOST=${MONGO_HOST:-localhost}
+    REDIS_HOST=${REDIS_HOST:-localhost}
+    KAFKA_HOST=${KAFKA_HOST:-localhost}
+    
+    echo "===> Using localhost for services"
+fi
 
-# Wait for both processes to complete
-wait $BACKEND_PID $CHATBACKEND_PID
+# Set environment variables for both services
+export NODE_ENV=${NODE_ENV:-development}
+export BACKEND_PORT=${BACKEND_PORT:-3000}
+export CHATBACKEND_PORT=${CHATBACKEND_PORT:-8000}
+
+# Create log directories
+mkdir -p /app/logs
+
+echo "===> Environment Configuration:"
+echo "     NODE_ENV: $NODE_ENV"
+echo "     Backend Port: $BACKEND_PORT"
+echo "     Chat Backend Port: $CHATBACKEND_PORT"
+echo "     MongoDB: ${MONGO_HOST:-mongodb}:${MONGO_PORT:-27017}"
+echo "     Redis: ${REDIS_HOST:-redis}:${REDIS_PORT:-6379}"
+echo "     Kafka: ${KAFKA_HOST:-kafka}:${KAFKA_PORT:-9092}"
+
+echo "===> Starting supervisor to manage both services..."
+
+# Start supervisor which will manage both Node.js processes
+exec supervisord -c /etc/supervisor/conf.d/supervisord.conf

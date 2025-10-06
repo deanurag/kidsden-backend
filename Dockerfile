@@ -1,37 +1,54 @@
-# Multi-stage Dockerfile for both backend and chatbackend Node.js applications
-FROM node:18 AS base
+# Multi-stage Docker build for both backend services
+FROM node:18-alpine as base
 
-# Create app directories
+# Install necessary packages including supervisor for process management
+RUN apk add --no-cache supervisor curl netcat-openbsd
+
+# Set working directory
 WORKDIR /app
 
-# Create directories for both applications
-RUN mkdir -p /app/backend /app/chatbackend
+# Create application directory structure
+RUN mkdir -p /app/backend /app/chatbackend /app/logs
 
 # Copy package.json files first for better Docker layer caching
 COPY backend/package*.json /app/backend/
 COPY chatbackend/package*.json /app/chatbackend/
 
-# Install dependencies for backend
+# Install dependencies for both applications
 WORKDIR /app/backend
 RUN npm ci --only=production
 
-# Install dependencies for chatbackend
-WORKDIR /app/chatbackend
+WORKDIR /app/chatbackend  
 RUN npm ci --only=production
 
 # Copy application source code
+WORKDIR /app
 COPY backend/ /app/backend/
 COPY chatbackend/ /app/chatbackend/
 
-# Create a startup script to run both applications
-WORKDIR /app
+# Copy startup script and supervisor configuration
 COPY start.sh /app/start.sh
-# Fix line endings and make executable
-RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Expose ports for both applications
-# Backend typically runs on 3000, chatbackend on 8000
+# Make startup script executable
+RUN chmod +x /app/start.sh
+
+# Create non-root user for security
+RUN addgroup -S appuser && \
+    adduser -D -s /bin/sh -G appuser appuser && \
+    chown -R appuser:appuser /app && \
+    mkdir -p /var/log/supervisor && \
+    chown -R appuser:appuser /var/log/supervisor
+
+# Switch to non-root user
+USER appuser
+
+# Expose ports for both services
 EXPOSE 3000 8000
 
-# Use the startup script to run both applications
+# Health check to ensure both services are running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/health || curl -f http://localhost:8000/health || exit 1
+
+# Use supervisor to manage both processes
 CMD ["/app/start.sh"]

@@ -6,7 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: node-app
+    container_name: kidsden-app
     ports:
       - "3000:3000"  # Backend port
       - "8000:8000"  # Chatbackend port
@@ -15,24 +15,55 @@ services:
       - redis
       - kafka
     environment:
-      # Environment variables for both applications
+      # Environment configuration
       - NODE_ENV=production
+      - ENVIRONMENT=docker
+      
+      # Backend service port
+      - BACKEND_PORT=3000
+      - CHATBACKEND_PORT=8000
+      
+      # Database connections
       - MONGO_URI=mongodb://root:root@mongodb:27017/schooldb?authSource=admin
       - CHAT_MONGO_URI=mongodb://root:root@mongodb:27017/chatdb?authSource=admin
+      
+      # Redis configuration
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      
+      # Kafka configuration
       - KAFKA_BROKERS=kafka:9092
-      - JWT_SECRET=your-super-secret-jwt-key
-      - RAZORPAY_KEY_ID=your_razorpay_key_id
-      - RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+      - KAFKA_HOST=kafka
+      - KAFKA_PORT=9092
+      
+      # Application secrets (should be set via environment variables in production)
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-your_razorpay_key_id}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-your_razorpay_key_secret}
+      
+      # Email configuration (optional)
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      
+    volumes:
+      # Mount logs directory for debugging
+      - ./logs:/app/logs
     networks:
-      - app-network
+      - kidsden-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health", "||", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # MongoDB service
   mongodb:
     image: mongo:latest
-    container_name: mongodb
+    container_name: kidsden-mongodb
     ports:
       - "27017:27017"
     volumes:
@@ -41,40 +72,59 @@ services:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: root
     networks:
-      - app-network
+      - kidsden-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # Redis service
   redis:
-    image: redis:latest
-    container_name: redis
+    image: redis:alpine
+    container_name: kidsden-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
-      - app-network
+      - kidsden-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
 
   # Zookeeper service (required for Kafka)
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
-    container_name: zookeeper
+    container_name: kidsden-zookeeper
     ports:
       - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
     networks:
-      - app-network
+      - kidsden-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # Kafka service
   kafka:
     image: confluentinc/cp-kafka:7.4.0
-    container_name: kafka
+    container_name: kidsden-kafka
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     ports:
       - "9092:9092"
     environment:
@@ -87,22 +137,34 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
     volumes:
       - kafka_data:/var/lib/kafka/data
     networks:
-      - app-network
+      - kidsden-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-# Create a custom network for better service communication
+# Create a custom network for service communication
 networks:
-  app-network:
+  kidsden-network:
     driver: bridge
 
-# Named volumes for data persistence
+# Define persistent volumes
 volumes:
   mongodb_data:
     driver: local
   redis_data:
     driver: local
   kafka_data:
+    driver: local
+  zookeeper_data:
+    driver: local
+  zookeeper_logs:
     driver: local

@@ -1,34 +1,33 @@
-# Docker ignore file to exclude unnecessary files from the Docker build context
-
-# Node.js
-node_modules/
+# Dependencies
+node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Logs
-logs/
-*.log
-
 # Runtime data
-pids/
+pids
 *.pid
 *.seed
 *.pid.lock
 
 # Coverage directory used by tools like istanbul
-coverage/
+coverage
 *.lcov
 
 # nyc test coverage
 .nyc_output
+
+# Grunt intermediate storage
+.grunt
+
+# Bower dependency directory
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons
+build/Release
 
 # Dependency directories
 jspm_packages/
@@ -48,11 +47,14 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
+# dotenv environment variables file (keep .env.example if you have one)
 .env
-.env.test
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# parcel-bundler cache (https://parceljs.org/)
+# parcel-bundler cache
 .cache
 .parcel-cache
 
@@ -74,14 +76,23 @@ jspm_packages/
 # DynamoDB Local files
 .dynamodb/
 
-# IDE and editor files
-.vscode/
-.idea/
+# Git
+.git
+.gitignore
+README.md
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# IDE
+.vscode
+.idea
 *.swp
 *.swo
-*~
 
-# OS generated files
+# OS
 .DS_Store
 .DS_Store?
 ._*
@@ -90,15 +101,10 @@ jspm_packages/
 ehthumbs.db
 Thumbs.db
 
-# Docker files
-Dockerfile*
-docker-compose*.yml
-docker-compose*.yaml
+# Logs
+logs
+*.log
 
-# Git
-.git/
-.gitignore
-
-# Documentation
-README.md
-*.md
+# Temporary files
+tmp
+temp

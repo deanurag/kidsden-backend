@@ -30,6 +30,16 @@ app.get('/', (req, res) => {
   res.send('Backend for chat is running');
 });
 
+// Health check endpoint for Docker
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    service: 'chatbackend',
+    timestamp: new Date().toISOString(),
+    port: PORT
+  });
+});
+
 connectDB();
 
 app.use(errorHandler);
