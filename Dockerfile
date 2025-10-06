@@ -36,9 +36,10 @@ RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 # Create non-root user for security
 RUN addgroup -S appuser && \
     adduser -D -s /bin/sh -G appuser appuser && \
+    mkdir -p /var/log/supervisor /app/logs && \
     chown -R appuser:appuser /app && \
-    mkdir -p /var/log/supervisor && \
-    chown -R appuser:appuser /var/log/supervisor
+    chown -R appuser:appuser /var/log/supervisor && \
+    chmod -R 755 /app/logs
 
 # Switch to non-root user
 USER appuser
