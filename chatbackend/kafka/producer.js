@@ -4,7 +4,7 @@ const { saveMessageToDB } = require('../controllers/chatController');
 let kafka = null;
 if (process.env.KAFKA_DISABLED !== 'true') {
     kafka = new Kafka({
-        brokers: [process.env.KAFKA_BROKERS || 'kafka:9092'],
+        brokers: [process.env.KAFKA_BROKERS || 'localhost:9092'],
     });
 }
 
