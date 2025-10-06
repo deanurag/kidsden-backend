@@ -273,7 +273,42 @@ check_service() {
     return 1
 }
 
-# Check services
+# Check infrastructure services first (if Kafka is enabled)
+if [ "$USE_KAFKA" = "true" ]; then
+    echo "🔍 Verifying ZooKeeper configuration..."
+    
+    # Check if ZooKeeper is running
+    if docker ps --filter "name=kidsden-zookeeper" --format "{{.Names}}" | grep -q kidsden-zookeeper; then
+        echo "✅ ZooKeeper container is running"
+        
+        # Wait a bit more for ZooKeeper to fully initialize
+        echo "⏳ Waiting for ZooKeeper to initialize (30s)..."
+        sleep 30
+        
+        # Test ZooKeeper connectivity
+        if timeout 10 bash -c 'echo ruok | nc localhost 2181' 2>/dev/null | grep -q imok; then
+            echo "✅ ZooKeeper is responding correctly"
+            
+            # Display ZooKeeper memory usage
+            echo "💾 ZooKeeper memory usage:"
+            docker stats kidsden-zookeeper --no-stream --format "{{.Container}}: {{.MemUsage}}" 2>/dev/null || echo "Could not get memory stats"
+        else
+            echo "⚠️  ZooKeeper not responding - checking logs:"
+            docker logs kidsden-zookeeper --tail 10
+        fi
+    else
+        echo "❌ ZooKeeper container not found"
+    fi
+    
+    # Check Kafka
+    if docker ps --filter "name=kidsden-kafka" --format "{{.Names}}" | grep -q kidsden-kafka; then
+        echo "✅ Kafka container is running"
+    else
+        echo "❌ Kafka container not found"
+    fi
+fi
+
+# Check application services
 check_service "Backend API" "http://localhost:3000/health"
 check_service "Chat Backend" "http://localhost:8000/health"
 

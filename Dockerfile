@@ -30,8 +30,8 @@ COPY chatbackend/ /app/chatbackend/
 COPY start.sh /app/start.sh
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Make startup script executable
-RUN chmod +x /app/start.sh
+# Fix line endings and make startup script executable
+RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 # Create non-root user for security
 RUN addgroup -S appuser && \
@@ -51,4 +51,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000/health || curl -f http://localhost:8000/health || exit 1
 
 # Use supervisor to manage both processes
-CMD ["/app/start.sh"]
+ENTRYPOINT ["/bin/sh", "/app/start.sh"]

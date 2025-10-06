@@ -109,10 +109,19 @@ services:
       - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-      # Optimize for smaller instances
-      KAFKA_HEAP_OPTS: "-Xmx128M -Xms64M"
-      ZOOKEEPER_MAX_CLIENT_CNXNS: 60
+      ZOOKEEPER_TICK_TIME: 3000
+      # Optimized memory settings for t2.medium (4GB RAM)
+      KAFKA_HEAP_OPTS: "-Xmx1G -Xms512M"
+      ZOOKEEPER_HEAP_OPTS: "-Xmx1G -Xms512M"
+      # Improved connection and performance settings
+      ZOOKEEPER_MAX_CLIENT_CNXNS: 100
+      ZOOKEEPER_INIT_LIMIT: 10
+      ZOOKEEPER_SYNC_LIMIT: 5
+      ZOOKEEPER_AUTOPURGE_SNAP_RETAIN_COUNT: 5
+      ZOOKEEPER_AUTOPURGE_PURGE_INTERVAL: 24
+      ZOOKEEPER_JUTE_MAX_BUFFER: 4194304
+      # Enable four letter word commands for health checks
+      ZOOKEEPER_4LW_COMMANDS_WHITELIST: "*"
     volumes:
       - zookeeper_data:/var/lib/zookeeper/data
       - zookeeper_logs:/var/lib/zookeeper/log
@@ -122,12 +131,12 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
-          cpus: '0.3'
+          memory: 1.5G
+          cpus: '0.5'
         reservations:
-          memory: 128M
+          memory: 512M
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep imok"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/commands/stat"]
       interval: 30s
       timeout: 10s
       retries: 5
