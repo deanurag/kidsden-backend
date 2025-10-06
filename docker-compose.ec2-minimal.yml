@@ -1,0 +1,105 @@
+version: '3.8'
+
+# EC2-optimized Docker Compose with optional Kafka
+# Use this for smaller EC2 instances where Kafka might not start reliably
+
+services:
+  # Combined backend application (both backend and chatbackend)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kidsden-app
+    ports:
+      - "3000:3000"  # Backend port
+      - "8000:8000"  # Chatbackend port
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Environment configuration
+      - NODE_ENV=production
+      - ENVIRONMENT=ec2
+      
+      # Backend service ports
+      - BACKEND_PORT=3000
+      - CHATBACKEND_PORT=8000
+      
+      # Database connections
+      - MONGO_URI=mongodb://root:root@mongodb:27017/schooldb?authSource=admin
+      - CHAT_MONGO_URI=mongodb://root:root@mongodb:27017/chatdb?authSource=admin
+      
+      # Redis configuration
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      
+      # Disable Kafka for smaller instances
+      - KAFKA_DISABLED=true
+      
+      # Application secrets
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-your_razorpay_key_id}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-your_razorpay_key_secret}
+      
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - kidsden-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health", "||", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # MongoDB service
+  mongodb:
+    image: mongo:latest
+    container_name: kidsden-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+    networks:
+      - kidsden-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis service
+  redis:
+    image: redis:alpine
+    container_name: kidsden-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - kidsden-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+# Create a custom network for service communication
+networks:
+  kidsden-network:
+    driver: bridge
+
+# Define persistent volumes
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local

@@ -41,7 +41,10 @@ if [ "${NODE_ENV}" = "production" ] || [ "${ENVIRONMENT}" = "ec2" ]; then
     # In production, wait for external services
     wait_for_service "${MONGO_HOST:-mongodb}" "${MONGO_PORT:-27017}" "MongoDB"
     wait_for_service "${REDIS_HOST:-redis}" "${REDIS_PORT:-6379}" "Redis" 
-    wait_for_service "${KAFKA_HOST:-kafka}" "${KAFKA_PORT:-9092}" "Kafka"
+    if ! wait_for_service "${KAFKA_HOST:-kafka}" "${KAFKA_PORT:-9092}" "Kafka"; then
+        echo "===> Kafka not available, enabling fallback mode..."
+        export KAFKA_DISABLED=true
+    fi
 else
     echo "===> Running in development environment"
     
@@ -51,6 +54,12 @@ else
     KAFKA_HOST=${KAFKA_HOST:-localhost}
     
     echo "===> Using localhost for services"
+    
+    # Try Kafka, but don't fail if it's not available
+    if ! wait_for_service "${KAFKA_HOST}" "${KAFKA_PORT:-9092}" "Kafka"; then
+        echo "===> Kafka not available in development, enabling fallback mode..."
+        export KAFKA_DISABLED=true
+    fi
 fi
 
 # Set environment variables for both services
@@ -68,6 +77,15 @@ echo "     Chat Backend Port: $CHATBACKEND_PORT"
 echo "     MongoDB: ${MONGO_HOST:-mongodb}:${MONGO_PORT:-27017}"
 echo "     Redis: ${REDIS_HOST:-redis}:${REDIS_PORT:-6379}"
 echo "     Kafka: ${KAFKA_HOST:-kafka}:${KAFKA_PORT:-9092}"
+
+if [ "$KAFKA_DISABLED" = "true" ]; then
+    echo "     Kafka: DISABLED (fallback mode active)"
+    echo ""
+    echo "===> ⚠️  NOTICE: Kafka is disabled. Chat message persistence will use direct DB writes."
+    echo "===> This reduces performance but ensures service availability."
+else
+    echo "     Kafka: ENABLED"
+fi
 
 echo "===> Starting supervisor to manage both services..."
 

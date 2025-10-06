@@ -123,12 +123,25 @@ docker-compose down 2>/dev/null || true
 echo "🧹 Cleaning up old images..."
 docker system prune -f
 
+# Check available memory
+MEMORY_GB=$(free -g | awk 'NR==2{printf "%.0f", $2}')
+echo "💾 Available memory: ${MEMORY_GB}GB"
+
+# Choose appropriate compose file based on available resources
+if [ "$MEMORY_GB" -lt 2 ]; then
+    echo "⚠️  Limited memory detected. Using minimal configuration (without Kafka)..."
+    COMPOSE_FILE="docker-compose.ec2-minimal.yml"
+else
+    echo "✅ Sufficient memory available. Using full configuration..."
+    COMPOSE_FILE="docker-compose.yml"
+fi
+
 # Build and start services
 echo "🏗️  Building application..."
-docker-compose build app
+docker-compose -f "$COMPOSE_FILE" build app
 
 echo "🚀 Starting services..."
-docker-compose up -d
+docker-compose -f "$COMPOSE_FILE" up -d
 
 # Wait for services to be ready
 echo "⏳ Waiting for services to start..."
@@ -168,7 +181,7 @@ check_service "Chat Backend" "http://localhost:8000/health"
 echo ""
 echo "📊 Deployment Status"
 echo "=================="
-docker-compose ps
+docker-compose -f "$COMPOSE_FILE" ps
 
 echo ""
 echo "📋 Service Information"
@@ -194,8 +207,13 @@ echo ""
 echo "🎉 Deployment completed successfully!"
 echo ""
 echo "📚 Useful Commands:"
-echo "  View logs:           docker-compose logs -f app"
-echo "  Check status:        docker-compose ps"
-echo "  Restart services:    docker-compose restart app"
-echo "  Update deployment:   git pull && docker-compose build app && docker-compose up -d"
-echo "  Stop services:       docker-compose down"
+echo "  View logs:           docker-compose -f $COMPOSE_FILE logs -f app"
+echo "  Check status:        docker-compose -f $COMPOSE_FILE ps"
+echo "  Restart services:    docker-compose -f $COMPOSE_FILE restart app"
+echo "  Update deployment:   git pull && docker-compose -f $COMPOSE_FILE build app && docker-compose -f $COMPOSE_FILE up -d"
+echo "  Stop services:       docker-compose -f $COMPOSE_FILE down"
+echo ""
+echo "🔧 Troubleshooting:"
+echo "  Check app logs:      docker logs kidsden-app"
+echo "  Enter container:     docker exec -it kidsden-app sh"
+echo "  Check processes:     docker exec -it kidsden-app supervisorctl status"
