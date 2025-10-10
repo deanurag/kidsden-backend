@@ -97,17 +97,17 @@ socket.on('message', async (data) => {
     };
     
     // First save to database
-    try {
-      const Message = require('./models/messageModel'); // Make sure you have this model
-      await Message.create({
-        classId: data.classId,
-        sender: data.sender,
-        content: data.message,
-        timestamp: new Date()
-      });
-    } catch (error) {
-      console.error('Error saving message to DB:', error);
-    }
+    // try {
+    //   const Message = require('./models/messageModel'); // Make sure you have this model
+    //   await Message.create({
+    //     classId: data.classId,
+    //     sender: data.sender,
+    //     content: data.message,
+    //     timestamp: new Date()
+    //   });
+    // } catch (error) {
+    //   console.error('Error saving message to DB:', error);
+    // }
     
     // Then broadcast via Redis
     await pub.publish('chatMessages', JSON.stringify(messageData));
